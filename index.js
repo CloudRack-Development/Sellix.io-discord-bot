@@ -57,15 +57,33 @@ async function storeProductsInDB(products) {
 
 async function saveBotConfig(guildId, logChannelId, updateLogChannelId, sellixStoreURL, sellixAPIKey, tempSetupChannelId, lastUpdate) {
     try {
-        const config = await BotConfigModel.findOneAndUpdate({ guildId }, {
-            guildId,
-            logChannelId,
-            updateLogChannelId,
-            sellixStoreURL,
-            sellixAPIKey,
-            tempSetupChannelId,
-            lastUpdate,
-        }, { upsert: true });
+        let config = await BotConfigModel.findOne({ guildId });
+
+        if (config) {
+            // If configuration exists, update it
+            config.logChannelId = logChannelId;
+            config.updateLogChannelId = updateLogChannelId;
+            config.sellixStoreURL = sellixStoreURL;
+            config.sellixAPIKey = sellixAPIKey;
+            config.tempSetupChannelId = tempSetupChannelId;
+            config.lastUpdate = lastUpdate;
+
+            await config.save();
+        } else {
+            // If configuration doesn't exist, insert new document
+            config = new BotConfigModel({
+                guildId,
+                logChannelId,
+                updateLogChannelId,
+                sellixStoreURL,
+                sellixAPIKey,
+                tempSetupChannelId,
+                lastUpdate,
+            });
+
+            await config.save();
+        }
+
         console.log('Bot configuration saved:', config);
     } catch (error) {
         console.error('Error saving bot configuration:', error);
@@ -307,14 +325,9 @@ client.on("messageCreate", async (message) => {
 
             let sentMessage;
             if (productMessageInfo[message.guild.id]) {
-                try {
-                    sentMessage = await message.channel.messages.fetch(productMessageInfo[message.guild.id]);
-                    for (const embed of embeds) {
-                        await sentMessage.edit({ embeds: [embed] });
-                    }
-                } catch (error) {
-                    console.error("Error fetching product message:", error);
-                    sentMessage = await message.channel.send({ embeds: embeds });
+                sentMessage = await message.channel.messages.fetch(productMessageInfo[message.guild.id]);
+                for (const embed of embeds) {
+                    await sentMessage.edit({ embeds: [embed] });
                 }
             } else {
                 sentMessage = await message.channel.send({ embeds: [embeds[0]] });
@@ -350,7 +363,7 @@ setInterval(async () => {
         await storeProductsInDB(products);
 
         const lastUpdate = new Date();
-        await BotConfigModel.updateOne({ guildId: statusGuildId }, { lastUpdate });
+        await BotConfigModel.update        .updateOne({ guildId: statusGuildId }, { lastUpdate });
 
         const updateLogChannel = await client.channels.fetch(botConfig.updateLogChannelId);
         if (!updateLogChannel || !updateLogChannel.isText()) {
@@ -392,15 +405,9 @@ setInterval(async () => {
 
         if (productMessageInfo[statusGuildId]) {
             const productMessageId = productMessageInfo[statusGuildId];
-            try {
-                const productMessage = await updateLogChannel.messages.fetch(productMessageId);
-                for (const embed of embeds) {
-                    await productMessage.edit({ embeds: [embed] });
-                }
-            } catch (error) {
-                console.error("Error editing product message:", error);
-                const productMessage = await updateLogChannel.send({ embeds: embeds });
-                productMessageInfo[statusGuildId] = productMessage.id;
+            const productMessage = await updateLogChannel.messages.fetch(productMessageId);
+            for (const embed of embeds) {
+                await productMessage.edit({ embeds: [embed] });
             }
         } else {
             const productMessage = await updateLogChannel.send({ embeds: [embeds[0]] });
