@@ -164,7 +164,7 @@ client.on("messageCreate", async (message) => {
             const logChannelQuestion = "Please mention the channel where you want bot logs to be sent (e.g., #log-channel):";
             tempSetupChannel.send(logChannelQuestion);
             const logChannelResponse = await tempSetupChannel.awaitMessages({ filter, max: 1, time: 60000, errors: ['time'] });
-            const logChannel = logChannelResponse.first().mentions            .channels.first();
+            const logChannel = logChannelResponse.first().mentions.channels.first();
 
             if (!logChannel) {
                 tempSetupChannel.send("Invalid channel mentioned. You will need to run the !setup command again.");
@@ -307,9 +307,14 @@ client.on("messageCreate", async (message) => {
 
             let sentMessage;
             if (productMessageInfo[message.guild.id]) {
-                sentMessage = await message.channel.messages.fetch(productMessageInfo[message.guild.id]);
-                for (const embed of embeds) {
-                    await sentMessage.edit({ embeds: [embed] });
+                try {
+                    sentMessage = await message.channel.messages.fetch(productMessageInfo[message.guild.id]);
+                    for (const embed of embeds) {
+                        await sentMessage.edit({ embeds: [embed] });
+                    }
+                } catch (error) {
+                    console.error("Error fetching product message:", error);
+                    sentMessage = await message.channel.send({ embeds: embeds });
                 }
             } else {
                 sentMessage = await message.channel.send({ embeds: [embeds[0]] });
@@ -345,7 +350,7 @@ setInterval(async () => {
         await storeProductsInDB(products);
 
         const lastUpdate = new Date();
-        await BotConfigModel.update        .updateOne({ guildId: statusGuildId }, { lastUpdate });
+        await BotConfigModel.updateOne({ guildId: statusGuildId }, { lastUpdate });
 
         const updateLogChannel = await client.channels.fetch(botConfig.updateLogChannelId);
         if (!updateLogChannel || !updateLogChannel.isText()) {
@@ -387,9 +392,15 @@ setInterval(async () => {
 
         if (productMessageInfo[statusGuildId]) {
             const productMessageId = productMessageInfo[statusGuildId];
-            const productMessage = await updateLogChannel.messages.fetch(productMessageId);
-            for (const embed of embeds) {
-                await productMessage.edit({ embeds: [embed] });
+            try {
+                const productMessage = await updateLogChannel.messages.fetch(productMessageId);
+                for (const embed of embeds) {
+                    await productMessage.edit({ embeds: [embed] });
+                }
+            } catch (error) {
+                console.error("Error editing product message:", error);
+                const productMessage = await updateLogChannel.send({ embeds: embeds });
+                productMessageInfo[statusGuildId] = productMessage.id;
             }
         } else {
             const productMessage = await updateLogChannel.send({ embeds: [embeds[0]] });
