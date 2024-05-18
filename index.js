@@ -164,7 +164,7 @@ client.on("messageCreate", async (message) => {
             const logChannelQuestion = "Please mention the channel where you want bot logs to be sent (e.g., #log-channel):";
             tempSetupChannel.send(logChannelQuestion);
             const logChannelResponse = await tempSetupChannel.awaitMessages({ filter, max: 1, time: 60000, errors: ['time'] });
-            const logChannel = logChannelResponse.first().mentions.channels.first();
+            const logChannel = logChannelResponse.first().mentions            .channels.first();
 
             if (!logChannel) {
                 tempSetupChannel.send("Invalid channel mentioned. You will need to run the !setup command again.");
@@ -345,7 +345,7 @@ setInterval(async () => {
         await storeProductsInDB(products);
 
         const lastUpdate = new Date();
-        await BotConfigModel.updateOne({ guildId: statusGuildId }, { lastUpdate });
+        await BotConfigModel.update        .updateOne({ guildId: statusGuildId }, { lastUpdate });
 
         const updateLogChannel = await client.channels.fetch(botConfig.updateLogChannelId);
         if (!updateLogChannel || !updateLogChannel.isText()) {
@@ -360,10 +360,44 @@ setInterval(async () => {
             .setFooter(process.env.GLOBAL_FOOTER);
 
         await updateLogChannel.send({ embeds: [updateLogEmbed] });
+
+        // Update product list message
+        let storedProducts = await ProductModel.find();
+        const sellixStoreURL = botConfig.sellixStoreURL;
+
+        let productList = "";
+        const productsChunks = [];
+
+        for (const product of storedProducts) {
+            const priceInUSD = await convertToUSD(product.price, product.currency);
+            const productLine = `[${product.title}](${sellixStoreURL}/product/${product.uniqid}) - $${priceInUSD} USD`;
+            if ((productList + productLine).length > 2000) {
+                productsChunks.push(productList);
+                productList = "";
+            }
+            productList += `${productLine}\n\n`;
+        }
+        productsChunks.push(productList);
+
+        const embeds = productsChunks.map((chunk, index) => new MessageEmbed()
+            .setTitle(index === 0 ? "Available Products" : "Continuation of Available Products")
+            .setDescription(chunk)
+            .setColor("GREEN")
+            .setFooter(process.env.GLOBAL_FOOTER));
+
+        if (productMessageInfo[statusGuildId]) {
+            const productMessageId = productMessageInfo[statusGuildId];
+            const productMessage = await updateLogChannel.messages.fetch(productMessageId);
+            for (const embed of embeds) {
+                await productMessage.edit({ embeds: [embed] });
+            }
+        } else {
+            const productMessage = await updateLogChannel.send({ embeds: [embeds[0]] });
+            productMessageInfo[statusGuildId] = productMessage.id;
+        }
     } catch (error) {
         console.error("Error fetching or updating products:", error);
     }
 }, 2 * 60 * 1000);
 
 client.login(process.env.DISCORD_TOKEN);
-
