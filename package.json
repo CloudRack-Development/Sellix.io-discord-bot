@@ -1,0 +1,25 @@
+{
+  "name": "nodejs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "pm2 start index.js --name MyBot",
+    "stop": "pm2 stop MyBot",
+    "restart": "pm2 restart MyBot",
+    "delete": "pm2 delete MyBot",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^18.0.6",
+    "axios": "^1.6.8",
+    "discord.js": "^13.17.1",
+    "dotenv": "^16.4.5",
+    "mongodb": "^6.6.2",
+    "mongoose": "^6.1.2",
+    "pm2": "^5.2.0"
+  },
+  "description": ""
+}
